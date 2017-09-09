@@ -1,7 +1,7 @@
 ---
 title: "STAT/MATH 495: Problem Set 01"
-author: "WRITE YOUR NAME HERE"
-date: "`r format(Sys.time(), '%B %d, %Y')`"
+author: "Sarah Teichman"
+date: "2017-09-07"
 output:
   html_document:
     toc: true
@@ -16,6 +16,55 @@ knitr::opts_chunk$set(echo = TRUE, fig.width=8, fig.height=4.5)
 
 # Load packages
 library(tidyverse)
+library(mosaic)
 ```
 
+Downloading data
+```{r include=FALSE}
+#download data
+train <- read_csv("https://rudeboybert.github.io/STAT495/static/Titanic/train.csv")
+test <- read_csv("https://rudeboybert.github.io/STAT495/static/Titanic/test.csv")
+#submission <- read_csv("https://rudeboybert.github.io/STAT495/static/Titanic/gender_submission.csv")
+```
 
+Here I looked at variables that might be useful, including Sex, Age, and Cabin.
+```{r}
+tally(train$Sex)
+summary(train$Age)
+train <- mutate(train, cabinB = ifelse(is.na(Cabin),0,1))
+tally(train$cabinB)
+#making cabinB, an indicator variable for whether or not the person had a cabin (seems to be highly correlated with the Pclass variable, but with only two levels)
+tally(Survived~Sex,data=train)
+tally(Survived~cabinB,data=train)
+ggplot(train,aes(Age,fill=factor(Survived)))+geom_histogram(binwidth=10,position="dodge")
+```
+
+Here I created datasets with only women and only men to explore relationships between variables. 
+
+```{r}
+women <- filter(train,Sex=="female")
+men <- filter(train,Sex=="male")
+tally(Survived~cabinB,data=women)
+tally(Survived~cabinB,data=men)
+women0 <- filter(women,cabinB==0)
+men1 <- filter(men,cabinB==1)
+ggplot(women0,aes(x=Age,fill=factor(Survived)))+geom_histogram(binwidth=8,position="fill")
+ggplot(men1,aes(x=Age,fill=factor(Survived)))+geom_histogram(binwidth=8,position="fill")
+
+```
+
+From the plot I can see that the percentage of women without cabins who survived was greater than 50% for almost every age group, so in my submission I predict that all of the women survived. However, cabinB is a better indicator of men who survived in the training set, and within that group the youngest and oldest men survived. In my submission I predict that all of the men died except for the ones who had cabins and were either younger than 20 or older than 75.
+
+```{r}
+test <- mutate(test,survived=0,cabinB= ifelse(is.na(Cabin),0,1))
+x <- which(test$Sex=="female")
+y <- which(test$Sex=="male"&test$cabinB==1&(test$Age<20|test$Age>75))
+test$survived[y] <- 1
+test$survived[x] <- 1
+ID <- test$PassengerId
+submission <- data.frame(PassengerID=ID,Survived=test$survived)
+tally(~Survived,data=submission,format="prop")
+tally(~Survived,data=train,format="prop") 
+#in my predictions, there is a similar percentage of people that survived as in the training set
+write.csv(file="submission.csv", x=submission,row.names=F)
+```
